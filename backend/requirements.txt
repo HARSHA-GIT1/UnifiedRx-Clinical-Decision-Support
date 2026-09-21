@@ -1,0 +1,22 @@
+# Web framework
+fastapi==0.115.0
+uvicorn[standard]==0.30.6
+
+# Async database
+sqlalchemy[asyncio]==2.0.35
+asyncpg==0.29.0
+
+# Migrations
+alembic==1.13.3
+
+# Validation & settings
+pydantic[email]==2.9.2
+pydantic-settings==2.5.2
+
+# Authentication
+python-jose[cryptography]==3.3.0
+bcrypt==4.2.0
+
+# Form parsing (needed for OAuth2PasswordRequestForm)
+python-multipart==0.0.12
+easyocr>=1.7.1
