@@ -28,8 +28,10 @@ from app.models.patient_access_grant import PatientAccessGrant
 from app.models.patient import Patient
 from app.models.user import User, UserRole
 from app.services import (
+    dashboard_service,
     lab_trend_service,
     safety_service,
+    summary_service,
     temporal_association_service,
     timeline_service,
 )
@@ -235,3 +237,55 @@ async def add_interaction(
     await db.commit()
     await db.refresh(entry)
     return {"interaction_id": str(entry.interaction_id), "status": "created"}
+
+
+# ---------------------------------------------------------------------------
+# 7. Dashboard Aggregation (Phase 4)
+# ---------------------------------------------------------------------------
+
+@router.get("/patients/{patient_id}/dashboard")
+async def get_patient_dashboard(
+    patient_id: UUID,
+    current_user: dict = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """Aggregate longitudinal clinical profile for frontend dashboard display."""
+    await _verify_patient_access(patient_id, current_user, db)
+    return await dashboard_service.get_patient_dashboard(patient_id, db)
+
+
+# ---------------------------------------------------------------------------
+# 8. AI Clinical Summary (Phase 4)
+# ---------------------------------------------------------------------------
+
+@router.post("/patients/{patient_id}/summary/generate")
+async def generate_patient_summary(
+    patient_id: UUID,
+    force_refresh: bool = False,
+    current_user: dict = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """Generate or retrieve idempotent evidence-grounded AI clinical summary."""
+    await _verify_patient_access(patient_id, current_user, db)
+    return await summary_service.generate_clinical_summary(
+        patient_id=patient_id,
+        db=db,
+        force_refresh=force_refresh,
+    )
+
+
+@router.get("/patients/{patient_id}/summary")
+async def get_patient_summary(
+    patient_id: UUID,
+    current_user: dict = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """Retrieve the latest stored AI clinical summary for a patient."""
+    await _verify_patient_access(patient_id, current_user, db)
+    summary = await summary_service.get_latest_clinical_summary(patient_id, db)
+    if not summary:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="No clinical summary has been generated for this patient yet.",
+        )
+    return summary

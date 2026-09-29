@@ -1,4 +1,4 @@
-"""
+﻿"""
 AI_Clinical_Summaries table — LLM-generated longitudinal summaries
 strictly grounded in the structured timeline, alerts, and associations.
 """
@@ -6,7 +6,7 @@ strictly grounded in the structured timeline, alerts, and associations.
 import uuid
 from datetime import datetime, timezone
 
-from sqlalchemy import Text, DateTime, ForeignKey
+from sqlalchemy import Text, DateTime, ForeignKey, String
 from sqlalchemy.dialects.postgresql import UUID as PG_UUID
 from sqlalchemy.orm import Mapped, mapped_column
 
@@ -30,6 +30,12 @@ class AIClinicalSummary(Base):
         DateTime(timezone=True),
         default=lambda: datetime.now(timezone.utc),
     )
+    model_version: Mapped[str | None] = mapped_column(
+        String(50), nullable=True, default="template_fallback"
+    )
+    structured_context_hash: Mapped[str | None] = mapped_column(
+        String(64), nullable=True, index=True
+    )
 
     def __repr__(self) -> str:
-        return f"<AISummary patient={self.patient_id} date={self.generated_date}>"
+        return f"<AISummary patient={self.patient_id} date={self.generated_date} model={self.model_version}>"
