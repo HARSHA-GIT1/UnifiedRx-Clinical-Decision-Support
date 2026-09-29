@@ -41,36 +41,62 @@ router = APIRouter(tags=["Clinical Intelligence"])
 # Shared access helper (mirrors documents.py pattern)
 # ---------------------------------------------------------------------------
 
+def _is_admin(current_user) -> bool:
+    role = current_user.get("role") if isinstance(current_user, dict) else getattr(current_user, "role", None)
+    if hasattr(role, "value"):
+        role = role.value
+    return role == "admin"
+
+
 async def _verify_patient_access(
     patient_id: UUID,
-    current_user: User,
+    current_user: dict | User,
     db: AsyncSession,
 ) -> None:
     """Raise 403 if current_user is not allowed to view this patient's data."""
-    if current_user.role == UserRole.admin:
+    if _is_admin(current_user):
         return
 
-    if current_user.role == UserRole.patient:
+    role = current_user.get("role") if isinstance(current_user, dict) else getattr(current_user, "role", None)
+    if hasattr(role, "value"):
+        role = role.value
+    user_id_raw = current_user.get("user_id") if isinstance(current_user, dict) else getattr(current_user, "user_id", None)
+    user_id = UUID(str(user_id_raw)) if user_id_raw else None
+
+    if role == "patient":
         patient_res = await db.execute(
-            select(Patient).where(Patient.user_id == current_user.user_id)
+            select(Patient).where(Patient.user_id == user_id)
         )
         patient = patient_res.scalar_one_or_none()
         if patient and patient.patient_id == patient_id:
             return
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN,
-                            detail="You do not have permission to view this patient's data.")
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="You do not have permission to view this patient's data.",
+        )
 
-    if current_user.role == UserRole.doctor:
+    if role in ("doctor", "healthcare_professional"):
+        from app.models.healthcare_professional import HealthcareProfessional
+        prof_res = await db.execute(
+            select(HealthcareProfessional.professional_id).where(
+                HealthcareProfessional.user_id == user_id
+            )
+        )
+        professional_id = prof_res.scalar_one_or_none()
+        if not professional_id:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Healthcare professional profile not found.",
+            )
+
         grant_res = await db.execute(
             select(PatientAccessGrant).where(
                 PatientAccessGrant.patient_id == patient_id,
-                PatientAccessGrant.professional_id == current_user.professional_id
-                if hasattr(current_user, "professional_id") else False,
+                PatientAccessGrant.professional_id == professional_id,
                 PatientAccessGrant.status == "approved",
             )
         )
-        grant = grant_res.scalar_one_or_none()
-        if grant:
+        if grant_res.scalar_one_or_none():
             return
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
@@ -87,7 +113,7 @@ async def _verify_patient_access(
 @router.get("/patients/{patient_id}/timeline")
 async def get_patient_timeline(
     patient_id: UUID,
-    current_user: User = Depends(get_current_user),
+    current_user: dict = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
     """Chronological list of all clinical events for a patient."""
@@ -102,7 +128,7 @@ async def get_patient_timeline(
 @router.get("/patients/{patient_id}/alerts")
 async def get_patient_alerts(
     patient_id: UUID,
-    current_user: User = Depends(get_current_user),
+    current_user: dict = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
     """All medication interaction alerts for a patient (newest first)."""
@@ -117,7 +143,7 @@ async def get_patient_alerts(
 @router.get("/patients/{patient_id}/lab-trends")
 async def get_patient_lab_trends(
     patient_id: UUID,
-    current_user: User = Depends(get_current_user),
+    current_user: dict = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
     """Per-test lab trend analysis (reference range + z-score) for a patient."""
@@ -132,7 +158,7 @@ async def get_patient_lab_trends(
 @router.get("/patients/{patient_id}/temporal-associations")
 async def get_patient_temporal_associations(
     patient_id: UUID,
-    current_user: User = Depends(get_current_user),
+    current_user: dict = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
     """Temporal associations between flagged lab results and recent medicines."""
@@ -148,11 +174,11 @@ async def get_patient_temporal_associations(
 async def list_interaction_knowledge_base(
     skip: int = 0,
     limit: int = 50,
-    current_user: User = Depends(get_current_user),
+    current_user: dict = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
     """Admin: paginated list of all drug interaction knowledge base entries."""
-    if current_user.role != UserRole.admin:
+    if not _is_admin(current_user):
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN,
                             detail="Admin access required.")
     res = await db.execute(
@@ -187,11 +213,11 @@ class InteractionCreate(BaseModel):
 @router.post("/admin/interaction-knowledge-base", status_code=status.HTTP_201_CREATED)
 async def add_interaction(
     body: InteractionCreate,
-    current_user: User = Depends(get_current_user),
+    current_user: dict = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
     """Admin: add a new drug interaction pair to the knowledge base."""
-    if current_user.role != UserRole.admin:
+    if not _is_admin(current_user):
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN,
                             detail="Admin access required.")
     if body.severity not in ("Major", "Moderate", "Minor"):

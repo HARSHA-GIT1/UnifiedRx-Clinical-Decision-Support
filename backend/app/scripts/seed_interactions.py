@@ -18,7 +18,6 @@ from app.core.database import async_session_factory
 from app.models.drug_interaction import DrugInteraction
 
 INTERACTION_PAIRS = [
-    # ── Cross-system: Allopathy ↔ Ayurveda ───────────────────────────────────
     {
         "medicine_a": "warfarin",
         "medicine_b": "withania somnifera",
@@ -103,7 +102,6 @@ INTERACTION_PAIRS = [
         ),
         "clinical_reference": "Dandekar et al. J Ethnopharmacol 1992; IP 2022",
     },
-    # ── Same-system: Allopathy ↔ Allopathy ───────────────────────────────────
     {
         "medicine_a": "amoxicillin and clavulanate potassium",
         "medicine_b": "metronidazole",
@@ -120,8 +118,8 @@ INTERACTION_PAIRS = [
         "severity": "Moderate",
         "evidence": (
             "Ibuprofen may competitively and reversibly inhibit aspirin-binding to "
-            "COX-1, reducing aspirin'"'"'s irreversible antiplatelet effect when taken "
-            "concurrently. Cardioprotective benefit of low-dose aspirin may be reduced."
+            "COX-1, reducing aspirin antiplatelet effect when taken concurrently. "
+            "Cardioprotective benefit of low-dose aspirin may be reduced."
         ),
         "clinical_reference": "FDA Drug Safety Communication 2006; MacDonald TM et al. Lancet 2003",
     },
@@ -131,8 +129,7 @@ INTERACTION_PAIRS = [
         "severity": "Minor",
         "evidence": (
             "Minor CYP3A4 pharmacokinetic interaction. Amoxicillin-clavulanate may "
-            "slightly alter simvastatin metabolism. Clinical significance is low; "
-            "monitor if co-prescribed for more than 7 days."
+            "slightly alter simvastatin metabolism. Clinical significance is low."
         ),
         "clinical_reference": "Drugs.com",
     },
@@ -154,7 +151,6 @@ async def seed_interaction_data():
     async with async_session_factory() as db:
         added = 0
         for pair in INTERACTION_PAIRS:
-            # Check both orderings to avoid duplicates
             stmt = select(DrugInteraction).where(
                 (
                     (DrugInteraction.medicine_a == pair["medicine_a"])
