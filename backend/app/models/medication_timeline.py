@@ -1,6 +1,6 @@
-"""
+﻿"""
 Medication_Timeline table — unified chronological event records
-linking medicines to temporal events (start, stop, change).
+linking medicines, diagnoses, and lab results to temporal events.
 """
 
 import uuid
@@ -23,6 +23,12 @@ class MedicationTimeline(Base):
         PG_UUID(as_uuid=True),
         ForeignKey("patients.patient_id", ondelete="CASCADE"),
         nullable=False,
+        index=True,
+    )
+    document_id: Mapped[uuid.UUID | None] = mapped_column(
+        PG_UUID(as_uuid=True),
+        ForeignKey("medical_documents.document_id", ondelete="SET NULL"),
+        nullable=True,
         index=True,
     )
     medicine_id: Mapped[uuid.UUID | None] = mapped_column(

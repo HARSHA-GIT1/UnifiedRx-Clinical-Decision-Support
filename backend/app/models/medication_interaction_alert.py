@@ -1,15 +1,16 @@
-"""
+﻿"""
 Medication_Interaction_Alerts table — generated alerts for medication
 pairs with known interaction risks.
 
-Each alert carries severity, evidence text, and the clinical reference
-from the Drug_Interaction_Knowledge_Base.
+Each alert carries severity, evidence text, the clinical reference
+from the Drug_Interaction_Knowledge_Base, and a cross_system flag
+indicating whether the pair spans Allopathic and AYUSH systems.
 """
 
 import uuid
 from datetime import datetime, timezone
 
-from sqlalchemy import String, Text, DateTime, ForeignKey
+from sqlalchemy import String, Text, Boolean, DateTime, ForeignKey
 from sqlalchemy.dialects.postgresql import UUID as PG_UUID
 from sqlalchemy.orm import Mapped, mapped_column
 
@@ -32,10 +33,11 @@ class MedicationInteractionAlert(Base):
     medicine_2: Mapped[str] = mapped_column(String(255), nullable=False)
     severity: Mapped[str] = mapped_column(String(50), nullable=False)
     evidence: Mapped[str] = mapped_column(Text, nullable=False)
+    cross_system: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
     generated_date: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),
         default=lambda: datetime.now(timezone.utc),
     )
 
     def __repr__(self) -> str:
-        return f"<Alert {self.medicine_1}↔{self.medicine_2} severity={self.severity}>"
+        return f"<Alert {self.medicine_1}↔{self.medicine_2} severity={self.severity} cross_system={self.cross_system}>"

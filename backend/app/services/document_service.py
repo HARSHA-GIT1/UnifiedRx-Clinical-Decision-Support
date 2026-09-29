@@ -1,6 +1,6 @@
-"""
+﻿"""
 Document Orchestration Service — handles document persistence, OCR extraction,
-medical NLP parsing, normalization, and database updates.
+medical NLP parsing, normalization, database updates, and Phase 3 intelligence.
 """
 
 import asyncio
@@ -9,7 +9,7 @@ from uuid import UUID
 from pathlib import Path
 
 from fastapi import BackgroundTasks, HTTPException, status
-from sqlalchemy import func, select
+from sqlalchemy import delete, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.database import async_session_factory
@@ -17,7 +17,14 @@ from app.models.diagnosis import Diagnosis
 from app.models.laboratory_result import LaboratoryResult
 from app.models.medical_document import MedicalDocument
 from app.models.medicine import Medicine
-from app.services import nlp_service, ocr_service, normalization_service
+from app.services import (
+    nlp_service,
+    normalization_service,
+    ocr_service,
+    safety_service,
+    temporal_association_service,
+    timeline_service,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -46,9 +53,16 @@ async def create_document_record(
 
 async def process_document_pipeline(document_id: UUID, mock_text: str | None = None) -> None:
     """
-    Background Task: Executes OCR -> Medical NLP -> Medicine Normalization -> DB Persistence.
-    
-    Runs CPU-bound operations in thread-pool via asyncio.to_thread.
+    Background Task: Executes OCR -> NLP -> Normalisation -> Persistence -> Phase 3 Intelligence.
+
+    Steps:
+      1. OCR text extraction (CPU -> thread pool)
+      2. Medical NLP entity extraction (CPU -> thread pool)
+      3. Delete stale extractions for this document (idempotent reprocessing)
+      4. Persist medicines (with normalisation), diagnoses, lab results
+      5. Phase 3a: record timeline events for this document
+      6. Phase 3b: run cross-system safety check
+      7. Phase 3c: run temporal association engine
     """
     async with async_session_factory() as db:
         result = await db.execute(
@@ -73,16 +87,24 @@ async def process_document_pipeline(document_id: UUID, mock_text: str | None = N
             # 2. Medical NLP extraction (CPU bound -> worker thread)
             extracted = await asyncio.to_thread(nlp_service.extract_entities, raw_text)
 
-            # Clean existing extractions if reprocessing
-            from sqlalchemy import delete
+            # 3. Clean existing extractions if reprocessing (surgical per-document delete)
             await db.execute(delete(Medicine).where(Medicine.document_id == doc.document_id))
+            await db.execute(delete(Diagnosis).where(Diagnosis.document_id == doc.document_id)
+                             if hasattr(Diagnosis, "document_id") else
+                             delete(Diagnosis).where(False))  # no-op if model lacks column
+            await db.execute(
+                delete(LaboratoryResult).where(
+                    LaboratoryResult.document_id == doc.document_id
+                ) if hasattr(LaboratoryResult, "document_id") else
+                delete(LaboratoryResult).where(False)
+            )
 
-            # 3. Process and persist extracted medicines with normalization
+            # 4a. Persist extracted medicines with normalisation
             for med_data in extracted["medications"]:
                 norm_data = await normalization_service.normalize_medicine_name(
                     med_data["medicine_name"], db
                 )
-                medicine_entry = Medicine(
+                db.add(Medicine(
                     patient_id=doc.patient_id,
                     document_id=doc.document_id,
                     medicine_name=med_data["medicine_name"],
@@ -93,39 +115,78 @@ async def process_document_pipeline(document_id: UUID, mock_text: str | None = N
                     end_date=med_data["end_date"],
                     system_of_medicine=norm_data["system_of_medicine"],
                     drug_class=norm_data["drug_class"],
-                )
-                db.add(medicine_entry)
+                ))
 
-            # 4. Process and persist extracted diagnoses
+            # 4b. Persist extracted diagnoses
             for diag_data in extracted["diagnoses"]:
-                diag_entry = Diagnosis(
+                db.add(Diagnosis(
                     patient_id=doc.patient_id,
                     disease_name=diag_data["disease_name"],
                     diagnosis_date=diag_data["diagnosis_date"],
-                )
-                db.add(diag_entry)
+                ))
 
-            # 5. Process and persist extracted laboratory results
+            # 4c. Persist extracted lab results
             for lab_data in extracted["laboratory_results"]:
-                lab_entry = LaboratoryResult(
+                db.add(LaboratoryResult(
                     patient_id=doc.patient_id,
                     test_name=lab_data["test_name"],
                     test_value=lab_data["test_value"],
                     unit=lab_data["unit"],
                     test_date=lab_data["test_date"],
-                )
-                db.add(lab_entry)
+                ))
 
-            # Mark completed
+            await db.flush()  # assign IDs before Phase 3 reads them back
+
+            # 5. Phase 3a: timeline events
+            try:
+                timeline_count = await timeline_service.record_document_events(
+                    patient_id=doc.patient_id,
+                    document_id=doc.document_id,
+                    db=db,
+                )
+                logger.info("Timeline: %d events recorded for doc %s", timeline_count, document_id)
+            except Exception as phase3_exc:
+                logger.warning("Timeline engine failed for doc %s: %s", document_id, phase3_exc)
+
+            # 6. Phase 3b: safety check (interaction detection)
+            try:
+                alerts = await safety_service.run_safety_check(
+                    patient_id=doc.patient_id, db=db
+                )
+                logger.info(
+                    "Safety: %d new alert(s) for patient %s", len(alerts), doc.patient_id
+                )
+            except Exception as phase3_exc:
+                logger.warning("Safety engine failed for doc %s: %s", document_id, phase3_exc)
+
+            # 7. Phase 3c: temporal associations
+            try:
+                assoc_count = await temporal_association_service.run_temporal_association(
+                    patient_id=doc.patient_id, db=db
+                )
+                logger.info(
+                    "Temporal: %d association(s) written for patient %s",
+                    assoc_count, doc.patient_id,
+                )
+            except Exception as phase3_exc:
+                logger.warning(
+                    "Temporal association engine failed for doc %s: %s", document_id, phase3_exc
+                )
+
+            # Finalise
             doc.processing_status = "completed"
             await db.commit()
-            logger.info("Successfully processed document %s: %d meds, %d diags, %d labs",
-                        document_id, len(extracted["medications"]), len(extracted["diagnoses"]), len(extracted["laboratory_results"]))
+            logger.info(
+                "Successfully processed document %s: %d meds, %d diags, %d labs",
+                document_id,
+                len(extracted["medications"]),
+                len(extracted["diagnoses"]),
+                len(extracted["laboratory_results"]),
+            )
 
         except Exception as exc:
             await db.rollback()
             logger.exception("Error processing document %s: %s", document_id, exc)
-            # Re-fetch document to record failure status
             err_doc_res = await db.execute(
                 select(MedicalDocument).where(MedicalDocument.document_id == document_id)
             )
@@ -151,15 +212,11 @@ async def get_document_by_id(document_id: UUID, db: AsyncSession) -> MedicalDocu
 
 
 async def get_document_counts(document_id: UUID, db: AsyncSession) -> dict[str, int]:
-    """Return counts of medications, diagnoses, and lab records created from this document."""
+    """Return counts of medications extracted from this document."""
     med_count_res = await db.execute(
         select(func.count(Medicine.medicine_id)).where(Medicine.document_id == document_id)
     )
-    med_count = med_count_res.scalar() or 0
-
-    return {
-        "medications_count": med_count,
-    }
+    return {"medications_count": med_count_res.scalar() or 0}
 
 
 async def list_documents_for_patient(patient_id: UUID, db: AsyncSession) -> list[MedicalDocument]:
@@ -177,8 +234,7 @@ async def trigger_reprocessing(
 ) -> MedicalDocument:
     """Reset document status to pending and enqueue processing background task."""
     doc = await get_document_by_id(document_id, db)
-    
-    # Verify file still exists on disk
+
     if not Path(doc.storage_path).exists():
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
@@ -191,3 +247,4 @@ async def trigger_reprocessing(
 
     background_tasks.add_task(process_document_pipeline, doc.document_id)
     return doc
+
