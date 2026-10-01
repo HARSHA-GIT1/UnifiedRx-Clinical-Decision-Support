@@ -11,6 +11,9 @@ import { PatientDashboard } from "./pages/patient/PatientDashboard";
 import { DoctorDashboard } from "./pages/doctor/DoctorDashboard";
 import { PatientClinicalView } from "./pages/doctor/PatientClinicalView";
 import { AdminDashboard } from "./pages/admin/AdminDashboard";
+import { VerificationQueue } from "./pages/admin/VerificationQueue";
+import { KnowledgeBaseAdmin } from "./pages/admin/KnowledgeBaseAdmin";
+import { LabReferencesAdmin } from "./pages/admin/LabReferencesAdmin";
 
 const ProtectedRoute = ({ children, allowedRoles }) => {
   const { isAuthenticated, user } = useAuth();
@@ -62,6 +65,30 @@ export default function App() {
         element={
           <ProtectedRoute allowedRoles={["admin"]}>
             <AdminDashboard />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/admin/verification"
+        element={
+          <ProtectedRoute allowedRoles={["admin"]}>
+            <VerificationQueue />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/admin/knowledge-base"
+        element={
+          <ProtectedRoute allowedRoles={["admin"]}>
+            <KnowledgeBaseAdmin />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/admin/lab-references"
+        element={
+          <ProtectedRoute allowedRoles={["admin"]}>
+            <LabReferencesAdmin />
           </ProtectedRoute>
         }
       />
