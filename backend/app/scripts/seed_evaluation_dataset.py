@@ -1,4 +1,4 @@
-import asyncio
+﻿import asyncio
 from datetime import date, timedelta
 from decimal import Decimal
 
@@ -57,7 +57,7 @@ async def test_seed():
         await db.flush()
         pid = patient.patient_id
 
-        # 2. Scenario A — Planted Medicines
+        # 2. Scenario A â€” Planted Medicines
         today = date.today()
         med1 = Medicine(
             patient_id=pid,
@@ -83,9 +83,9 @@ async def test_seed():
         )
         db.add_all([med1, med2])
 
-        # 3. Scenario B — Planted 6 Lab readings spaced 15 days apart
-        vals = [0.85, 0.92, 1.00, 1.08, 1.15, 1.18]
-        days_ago = [95, 80, 65, 50, 35, 20]
+        # 3. Scenario B - Planted 9 Lab readings: 8 stable baseline + 1 acute outlier
+        vals = [0.85, 0.88, 0.90, 0.87, 0.89, 0.88, 0.91, 0.87, 3.8]
+        days_ago = [120, 105, 90, 75, 60, 45, 30, 25, 20]
         labs = []
         for v, d in zip(vals, days_ago):
             labs.append(
@@ -100,7 +100,7 @@ async def test_seed():
         db.add_all(labs)
         await db.commit()
 
-        print(f"Seeded eval patient {pid} with 2 medicines and 6 lab readings.")
+        print(f"Seeded eval patient {pid} with 2 medicines and 9 lab readings.")
 
         # Run Safety Engine
         new_alerts = await safety_service.run_safety_check(pid, db)
@@ -126,3 +126,4 @@ async def test_seed():
             print(f"  Assoc: {ta['medicine_name']} -> {ta['test_name']} | Gap: {ta['time_gap_days']} days | Observation: {ta['observation']}")
 
 asyncio.run(test_seed())
+

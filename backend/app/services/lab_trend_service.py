@@ -32,7 +32,7 @@ from app.models.temporal_association import TemporalAssociation
 
 logger = logging.getLogger(__name__)
 
-Z_THRESHOLD = 1.2
+Z_THRESHOLD = 2.0
 MIN_READINGS_FOR_ZSCORE = 3
 
 
