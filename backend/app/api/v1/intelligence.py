@@ -135,6 +135,9 @@ async def get_patient_alerts(
 ):
     """All medication interaction alerts for a patient (newest first)."""
     await _verify_patient_access(patient_id, current_user, db)
+    # Run check to generate any new alerts, then return all stored alerts
+    await safety_service.run_safety_check(patient_id, db)
+    await db.commit()
     return await safety_service.get_patient_alerts(patient_id, db)
 
 

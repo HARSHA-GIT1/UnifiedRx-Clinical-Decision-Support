@@ -74,6 +74,7 @@ async def get_patient_dashboard(patient_id: UUID, db: AsyncSession) -> dict[str,
 
     # 4. Intelligence engines
     timeline = await timeline_service.get_patient_timeline(patient_id, db)
+    await safety_service.run_safety_check(patient_id, db)
     alerts = await safety_service.get_patient_alerts(patient_id, db)
     lab_trends = await lab_trend_service.analyse_patient_labs(patient_id, db)
     temporal_associations = await temporal_association_service.get_patient_associations(patient_id, db)
@@ -106,6 +107,6 @@ async def get_patient_dashboard(patient_id: UUID, db: AsyncSession) -> dict[str,
         "safety_alerts": alerts,
         "lab_trends": lab_trends,
         "temporal_associations": temporal_associations,
-        "recent_timeline": timeline[:15],
+        "recent_timeline": timeline,
         "latest_summary": latest_summary,
     }

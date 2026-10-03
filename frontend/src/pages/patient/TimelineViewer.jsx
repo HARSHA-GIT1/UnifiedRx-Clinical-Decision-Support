@@ -204,7 +204,7 @@ export const TimelineViewer = ({ patientId, initialData }) => {
   const [filter, setFilter] = useState("all");
 
   useEffect(() => {
-    if (!patientId || initialData?.length > 0) return;
+    if (!patientId) return;
     (async () => {
       setLoading(true);
       try {
@@ -213,7 +213,7 @@ export const TimelineViewer = ({ patientId, initialData }) => {
       } catch (_) {}
       setLoading(false);
     })();
-  }, [patientId, initialData]);
+  }, [patientId]);
 
   // Explicit whitelists for swim-lane partitioning
   const AYUSH_SYSTEMS = ["Ayurveda", "Ayurvedic", "Unani", "Siddha", "Homeopathy", "AYUSH"];
