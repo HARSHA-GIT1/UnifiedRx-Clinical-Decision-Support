@@ -279,3 +279,21 @@ async def list_patient_documents(
         )
         for d in docs
     ]
+
+
+@router.delete(
+    "/{document_id}",
+    status_code=status.HTTP_200_OK,
+    summary="Delete a medical document and all its extracted records",
+)
+async def delete_document(
+    document_id: UUID,
+    current_user: Annotated[dict, Depends(get_current_user)],
+    db: Annotated[AsyncSession, Depends(get_db)],
+) -> dict:
+    """
+    Delete an uploaded document along with all extracted medications and timeline events.
+    Patient can delete their own document. Doctor/Admin with patient access can also delete.
+    """
+    doc = await _verify_document_access(document_id, current_user, db)
+    return await document_service.delete_document(document_id=doc.document_id, db=db)

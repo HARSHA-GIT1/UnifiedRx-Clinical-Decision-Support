@@ -91,7 +91,7 @@ export const AccessGrantsPanel = ({ patientId }) => {
     setLoading(true);
     try {
       const data = await accessApi.getPendingRequests();
-      setPending(data.filter(g => g.status === "pending"));
+      setPending(data.filter(g => g.status === "requested" || g.status === "pending"));
       setApproved(data.filter(g => g.status === "approved"));
     } catch (err) {
       setError(err.message);

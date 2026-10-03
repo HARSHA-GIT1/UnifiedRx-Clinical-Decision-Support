@@ -248,3 +248,56 @@ async def trigger_reprocessing(
     background_tasks.add_task(process_document_pipeline, doc.document_id)
     return doc
 
+
+
+async def delete_document(document_id: UUID, db: AsyncSession) -> dict:
+    """
+    Delete a medical document and all clinical entities extracted from it.
+    """
+    doc_res = await db.execute(
+        select(MedicalDocument).where(MedicalDocument.document_id == document_id)
+    )
+    doc = doc_res.scalar_one_or_none()
+    if doc is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Document not found.",
+        )
+
+    patient_id = doc.patient_id
+
+    # 1. Delete associated Medicines
+    await db.execute(
+        delete(Medicine).where(Medicine.document_id == document_id)
+    )
+
+    # 2. Delete associated MedicationTimeline events
+    await db.execute(
+        delete(MedicationTimeline).where(MedicationTimeline.document_id == document_id)
+    )
+
+    # 3. Delete file from storage
+    if doc.storage_path:
+        storage_service.delete_file(doc.storage_path)
+
+    # 4. Delete the MedicalDocument record
+    await db.execute(
+        delete(MedicalDocument).where(MedicalDocument.document_id == document_id)
+    )
+
+    await db.commit()
+
+    # 5. Re-evaluate clinical safety, lab trends, and summary engines for the patient
+    try:
+        from app.services import safety_service, summary_service, lab_trend_service, temporal_association_service
+        await safety_service.evaluate_patient_safety(patient_id, db)
+        await lab_trend_service.analyze_patient_trends(patient_id, db)
+        await temporal_association_service.detect_temporal_associations(patient_id, db)
+        await summary_service.generate_ai_summary(patient_id, db)
+    except Exception as e:
+        logger.warning("Clinical engine re-evaluation post doc delete warning: %s", e)
+
+    return {
+        "message": "Document and all extracted clinical records deleted successfully.",
+        "document_id": str(document_id),
+    }

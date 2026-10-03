@@ -35,8 +35,8 @@ export const PatientSearch = ({ disabled = false, onRequestSuccess }) => {
         onRequestSuccess(res);
       }
     } catch (err) {
-      const status = err.response?.status;
-      const detail = err.response?.data?.detail || "";
+      const status = err.status || err.response?.status;
+      const detail = typeof err.detail === "string" ? err.detail : (typeof err.response?.data?.detail === "string" ? err.response.data.detail : err.message || "");
 
       if (status === 409) {
         if (detail.toLowerCase().includes("pending")) {

@@ -112,7 +112,7 @@ export const PatientRegister = () => {
             )}
 
             <Box component="form" onSubmit={handleSubmit}>
-              <Grid container spacing={2.5}>
+                            <Grid container spacing={3} alignItems="flex-start">
                 <Grid item xs={12}>
                   <TextField
                     label="Full Name"
@@ -122,6 +122,7 @@ export const PatientRegister = () => {
                     fullWidth
                     required
                     placeholder="e.g. Aarav Sharma"
+                    slotProps={{ inputLabel: { shrink: true } }}
                   />
                 </Grid>
 
@@ -129,12 +130,21 @@ export const PatientRegister = () => {
                   <TextField
                     label="Date of Birth"
                     name="date_of_birth"
-                    type="date"
+                    type={formData.date_of_birth ? "date" : "text"}
+                    onFocus={(e) => (e.target.type = "date")}
+                    onBlur={(e) => {
+                      if (!formData.date_of_birth) e.target.type = "text";
+                    }}
                     value={formData.date_of_birth}
                     onChange={handleChange}
                     fullWidth
                     required
-                    InputLabelProps={{ shrink: true }}
+                    sx={{
+                      '& input[type="date"]::-webkit-calendar-picker-indicator': {
+                        cursor: 'pointer',
+                        mr: 1
+                      }
+                    }}
                   />
                 </Grid>
 
@@ -147,6 +157,7 @@ export const PatientRegister = () => {
                     onChange={handleChange}
                     fullWidth
                     required
+                    slotProps={{ inputLabel: { shrink: true } }}
                   >
                     <MenuItem value="Male">Male</MenuItem>
                     <MenuItem value="Female">Female</MenuItem>
@@ -164,18 +175,21 @@ export const PatientRegister = () => {
                     fullWidth
                     required
                     placeholder="+919876543210"
+                    slotProps={{ inputLabel: { shrink: true } }}
                   />
                 </Grid>
 
                 <Grid item xs={12} sm={6}>
                   <TextField
-                    label="Blood Group (Optional)"
+                    label="Blood Group"
                     name="blood_group"
                     select
                     value={formData.blood_group}
                     onChange={handleChange}
                     fullWidth
+                    slotProps={{ inputLabel: { shrink: true } }}
                   >
+                    <MenuItem value=""><em>None</em></MenuItem>
                     {["A+", "A-", "B+", "B-", "AB+", "AB-", "O+", "O-"].map((bg) => (
                       <MenuItem key={bg} value={bg}>
                         {bg}
@@ -194,6 +208,7 @@ export const PatientRegister = () => {
                     fullWidth
                     required
                     placeholder="aarav@example.com"
+                    slotProps={{ inputLabel: { shrink: true } }}
                   />
                 </Grid>
 
@@ -206,7 +221,9 @@ export const PatientRegister = () => {
                     onChange={handleChange}
                     fullWidth
                     required
-                    helperText="Minimum 8 characters with at least one letter and one number."
+                    placeholder="Min. 8 characters"
+                    helperText="Must include at least one letter and one number."
+                    slotProps={{ inputLabel: { shrink: true } }}
                   />
                 </Grid>
               </Grid>
@@ -307,3 +324,6 @@ export const PatientRegister = () => {
     </Box>
   );
 };
+
+
+

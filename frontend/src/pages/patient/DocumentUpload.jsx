@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef, useCallback } from "react";
 import {
   Box, Typography, Button, Chip, Card, LinearProgress,
   Select, MenuItem, FormControl, InputLabel, Alert, Grid,
-  Table, TableHead, TableRow, TableCell, TableBody, Tooltip,
+  Table, TableHead, TableRow, TableCell, TableBody, Tooltip, IconButton,
   CircularProgress, Divider, Stack,
 } from "@mui/material";
 import CloudUploadIcon from "@mui/icons-material/CloudUpload";
@@ -349,3 +349,4 @@ const UploadStatus = ({ docId, initialStatus }) => {
     </Card>
   );
 };
+

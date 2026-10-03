@@ -26,4 +26,7 @@ export const documentsApi = {
     const res = await apiClient.get(`/documents/patient/${patientId}`);
     return res.data;
   },
+
 };
+
+

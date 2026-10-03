@@ -88,3 +88,15 @@ async def save_uploaded_file(file: UploadFile) -> tuple[str, str, int]:
         )
 
     return original_filename, str(destination), total_size
+
+
+def delete_file(file_path: str) -> bool:
+    """Delete a stored file from disk if it exists."""
+    try:
+        p = Path(file_path)
+        if p.exists() and p.is_file():
+            p.unlink()
+            return True
+    except Exception:
+        pass
+    return False

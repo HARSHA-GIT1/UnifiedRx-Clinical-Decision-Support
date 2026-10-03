@@ -120,7 +120,8 @@ uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
 
 ### OCR Engine (EasyOCR / PyTorch)
 
-EasyOCR (>=1.7.2) and PyTorch (2.14.0) are installed as dependencies and listed in equirements.txt. However, on machines where **Windows Application Control policy** (or equivalent OS security policy) blocks native DLLs — for example, 	orch/lib/shm.dll (WinError 4551) — EasyOCR will fail to initialize at startup. The service detects this failure at Reader() construction time, logs it at ERROR level, and **automatically falls back** to digital PDF text extraction via pypdf only. No crash occurs; processing degrades gracefully.
+EasyOCR (>=1.7.2) and PyTorch (2.14.0) are installed as dependencies and listed in 
+equirements.txt. However, on machines where **Windows Application Control policy** (or equivalent OS security policy) blocks native DLLs — for example, 	orch/lib/shm.dll (WinError 4551) — EasyOCR will fail to initialize at startup. The service detects this failure at Reader() construction time, logs it at ERROR level, and **automatically falls back** to digital PDF text extraction via pypdf only. No crash occurs; processing degrades gracefully.
 
 **Consequence for academic evaluation (Chapters 8–9 / OCR accuracy metrics):**
 - Image-based OCR (scanned prescriptions, PNG/JPG uploads) will only produce results on machines where the Application Control policy permits PyTorch DLLs to load. All OCR accuracy measurements in the capstone should clearly state whether they were collected on a policy-unrestricted machine.

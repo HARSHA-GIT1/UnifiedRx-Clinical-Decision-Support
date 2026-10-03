@@ -32,7 +32,7 @@ from itertools import combinations
 from typing import NamedTuple
 from uuid import UUID
 
-from sqlalchemy import or_, select
+from sqlalchemy import func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.drug_interaction import DrugInteraction
@@ -116,11 +116,27 @@ async def run_safety_check(patient_id: UUID, db: AsyncSession) -> list[dict]:
             continue  # no temporal overlap at all
 
         # 4. Knowledge-base lookup (order-independent)
+        # 4. Knowledge-base lookup (order-independent, case-insensitive, prefix/generic matching)
+        a_candidates = [a.name, a.raw_name.lower(), a.name.split()[0]]
+        b_candidates = [b.name, b.raw_name.lower(), b.name.split()[0]]
+
         kb_res = await db.execute(
             select(DrugInteraction).where(
                 or_(
-                    (DrugInteraction.medicine_a == a.name) & (DrugInteraction.medicine_b == b.name),
-                    (DrugInteraction.medicine_a == b.name) & (DrugInteraction.medicine_b == a.name),
+                    (func.lower(DrugInteraction.medicine_a).in_(a_candidates))
+                    & (func.lower(DrugInteraction.medicine_b).in_(b_candidates)),
+                    (func.lower(DrugInteraction.medicine_a).in_(b_candidates))
+                    & (func.lower(DrugInteraction.medicine_b).in_(a_candidates)),
+                    or_(*[
+                        (func.lower(a_n).contains(func.lower(DrugInteraction.medicine_a)))
+                        & (func.lower(b_n).contains(func.lower(DrugInteraction.medicine_b)))
+                        for a_n in a_candidates for b_n in b_candidates
+                    ]),
+                    or_(*[
+                        (func.lower(b_n).contains(func.lower(DrugInteraction.medicine_a)))
+                        & (func.lower(a_n).contains(func.lower(DrugInteraction.medicine_b)))
+                        for a_n in a_candidates for b_n in b_candidates
+                    ]),
                 )
             )
         )

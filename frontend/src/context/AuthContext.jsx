@@ -2,43 +2,50 @@ import React, { createContext, useContext, useState, useEffect } from "react";
 import { setAuthTokenGetter } from "../api/client";
 import { authApi } from "../api/auth";
 
-/**
- * SECURITY ARCHITECTURE NOTE:
- * JWT access tokens are stored strictly in React in-memory state.
- * By design, tokens are NEVER persisted to localStorage or sessionStorage
- * to completely eliminate persistent cross-site scripting (XSS) token exfiltration risks.
- *
- * An intentional tradeoff of this security boundary is that a hard browser refresh
- * terminates the in-memory React session and requires the user to log in again.
- */
-
 const AuthContext = createContext(null);
 
 export const AuthProvider = ({ children }) => {
-  const [token, setToken] = useState(null);
-  const [user, setUser] = useState(null);
+  // Initialize state from localStorage
+  const [token, setToken] = useState(() => localStorage.getItem("auth_token"));
+  const [user, setUser] = useState(() => {
+    const savedUser = localStorage.getItem("auth_user");
+    return savedUser ? JSON.parse(savedUser) : null;
+  });
   const [loading, setLoading] = useState(false);
 
-  // Register in-memory token getter for Axios client
+  // Sync token to localStorage and Axios client
   useEffect(() => {
+    if (token) {
+      localStorage.setItem("auth_token", token);
+    } else {
+      localStorage.removeItem("auth_token");
+    }
     setAuthTokenGetter(() => token);
   }, [token]);
+
+  // Sync user to localStorage
+  useEffect(() => {
+    if (user) {
+      localStorage.setItem("auth_user", JSON.stringify(user));
+    } else {
+      localStorage.removeItem("auth_user");
+    }
+  }, [user]);
 
   const login = async (email, password) => {
     setLoading(true);
     try {
       const data = await authApi.login(email, password);
-      // Immediately set token in memory so subsequent /me call has Authorization header
       setToken(data.access_token);
       setAuthTokenGetter(() => data.access_token);
 
-      // Fetch profile
       const profile = await authApi.getMe();
-      setUser({
+      const userData = {
         ...profile,
         role: data.role || profile.role,
-      });
-      return { token: data.access_token, role: data.role || profile.role, user: profile };
+      };
+      setUser(userData);
+      return { token: data.access_token, role: userData.role, user: profile };
     } finally {
       setLoading(false);
     }
@@ -52,10 +59,11 @@ export const AuthProvider = ({ children }) => {
       setAuthTokenGetter(() => data.access_token);
 
       const profile = await authApi.getMe();
-      setUser({
+      const userData = {
         ...profile,
         role: "admin",
-      });
+      };
+      setUser(userData);
       return { token: data.access_token, role: "admin", user: profile };
     } finally {
       setLoading(false);
@@ -70,11 +78,12 @@ export const AuthProvider = ({ children }) => {
       setAuthTokenGetter(() => data.access_token);
 
       const profile = await authApi.getMe();
-      setUser({
+      const userData = {
         ...profile,
         health_code: data.health_code,
         role: "patient",
-      });
+      };
+      setUser(userData);
       return {
         health_code: data.health_code,
         token: data.access_token,
@@ -94,12 +103,13 @@ export const AuthProvider = ({ children }) => {
       setAuthTokenGetter(() => data.access_token);
 
       const profile = await authApi.getMe();
-      setUser({
+      const userData = {
         ...profile,
         professional_code: data.professional_code,
         verification_status: data.verification_status,
         role: "healthcare_professional",
-      });
+      };
+      setUser(userData);
       return {
         professional_code: data.professional_code,
         verification_status: data.verification_status,

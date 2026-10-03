@@ -168,9 +168,9 @@ async def get_patient_timeline(
         system = med.system_of_medicine if med else None
 
         if tl.event_type == "medication_started":
-            desc = f"Started {med_name}" + (f" ({system})" if system else "")
+            desc = f"Started {med_name} ({system or 'Unclassified'})" if med_name else tl.event_type
         elif tl.event_type == "medication_stopped":
-            desc = f"Stopped {med_name}" + (f" ({system})" if system else "")
+            desc = f"Stopped {med_name} ({system or 'Unclassified'})" if med_name else tl.event_type
         elif tl.event_type == "diagnosis_recorded":
             desc = "Diagnosis recorded from document"
         elif tl.event_type == "lab_result_recorded":

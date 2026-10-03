@@ -39,6 +39,10 @@ apiClient.interceptors.response.use(
       error.response?.data?.message ||
       error.message ||
       "An unexpected error occurred. Please verify your connection.";
-    return Promise.reject(new Error(message));
+    const err = new Error(message);
+    err.response = error.response;
+    err.status = error.response?.status;
+    err.detail = error.response?.data?.detail;
+    return Promise.reject(err);
   }
 );

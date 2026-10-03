@@ -215,12 +215,18 @@ export const TimelineViewer = ({ patientId, initialData }) => {
     })();
   }, [patientId, initialData]);
 
+  // Explicit whitelists for swim-lane partitioning
+  const AYUSH_SYSTEMS = ["Ayurveda", "Ayurvedic", "Unani", "Siddha", "Homeopathy", "AYUSH"];
+  const ALLOPATHY_SYSTEMS = ["Allopathy", "Allopathic"];
+
   // Partition into swim-lanes
   const allopathyEvents = events.filter(
-    (e) => e.system_of_medicine && ["Allopathy", "Allopathic"].includes(e.system_of_medicine)
+    (e) => (e.event_type === "medication_started" || e.event_type === "medication_stopped") &&
+           (ALLOPATHY_SYSTEMS.includes(e.system_of_medicine) || !e.system_of_medicine)
   );
   const ayushEvents = events.filter(
-    (e) => e.system_of_medicine && !["Allopathy", "Allopathic"].includes(e.system_of_medicine)
+    (e) => (e.event_type === "medication_started" || e.event_type === "medication_stopped") &&
+           AYUSH_SYSTEMS.includes(e.system_of_medicine)
   );
   const diagnosticEvents = events.filter(
     (e) => e.event_type === "lab_result_recorded" || e.event_type === "diagnosis_recorded"

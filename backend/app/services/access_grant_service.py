@@ -135,7 +135,7 @@ async def get_pending_requests(
             detail="Patient profile not found.",
         )
 
-    # Fetch pending grants with professional info
+    # Fetch pending and approved grants with professional info
     grants_result = await db.execute(
         select(PatientAccessGrant, HealthcareProfessional)
         .join(
@@ -144,7 +144,7 @@ async def get_pending_requests(
         )
         .where(
             PatientAccessGrant.patient_id == patient.patient_id,
-            PatientAccessGrant.status == GrantStatus.requested,
+            PatientAccessGrant.status.in_([GrantStatus.requested, GrantStatus.approved]),
         )
     )
     rows = grants_result.all()
@@ -156,6 +156,7 @@ async def get_pending_requests(
             professional_code=prof.professional_code,
             status=grant.status.value,
             requested_date=grant.requested_date,
+            approved_date=grant.approved_date,
         )
         for grant, prof in rows
     ]
