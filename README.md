@@ -6,7 +6,6 @@
 [![Vite](https://img.shields.io/badge/Vite-8.3.0-646CFF.svg)](https://vite.dev/)
 [![PostgreSQL 16](https://img.shields.io/badge/PostgreSQL-16-336791.svg)](https://www.postgresql.org/)
 [![SQLAlchemy 2.0](https://img.shields.io/badge/SQLAlchemy-2.0.35%20Async-D71F00.svg)](https://www.sqlalchemy.org/)
-[![Tests](https://img.shields.io/badge/Tests-31%2F31%20Passing-brightgreen.svg)]()
 [![License](https://img.shields.io/badge/License-Academic%20Prototype-gray.svg)]()
 
 ---
