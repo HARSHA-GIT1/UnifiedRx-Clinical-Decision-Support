@@ -3,6 +3,7 @@ Document API endpoints: upload, status polling, details, reprocessing,
 and patient document listing with strict consent authorization.
 """
 
+from pathlib import Path
 from typing import Annotated
 from uuid import UUID
 
@@ -10,12 +11,14 @@ from fastapi import (
     APIRouter,
     BackgroundTasks,
     Depends,
+    FastAPI,
     File,
     Form,
     HTTPException,
     UploadFile,
     status,
 )
+from fastapi.responses import FileResponse
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.database import get_db
@@ -297,3 +300,103 @@ async def delete_document(
     """
     doc = await _verify_document_access(document_id, current_user, db)
     return await document_service.delete_document(document_id=doc.document_id, db=db)
+
+
+
+async def _execute_document_download(
+    doc_id: UUID,
+    current_user: dict,
+    db: AsyncSession,
+) -> FileResponse:
+    """Core download logic enforcing patient role, ownership, and disk existence."""
+    # 1. Require JWT authentication (patient role only)
+    if current_user.get("role") != "patient":
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Access denied. Patient role required.",
+        )
+
+    # 2. Look up the patient record for the current user
+    patient = await patient_service.get_patient_by_user_id(
+        user_id=UUID(current_user["user_id"]), db=db
+    )
+    if not patient:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Patient profile not found.",
+        )
+
+    # 3. Retrieve document record and verify ownership
+    doc = await document_service.get_document_by_id(doc_id, db)
+    if doc.patient_id != patient.patient_id:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Access denied. You do not own this prescription.",
+        )
+
+    # 4. Handle file existence on disk
+    file_path = Path(doc.storage_path)
+    if not file_path.exists() or not file_path.is_file():
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Prescription file not found on disk.",
+        )
+
+    # 5. Return downloadable response using FileResponse
+    return FileResponse(
+        path=str(file_path),
+        filename=doc.file_name,
+    )
+
+
+@router.get(
+    "/{document_id}/download",
+    response_class=FileResponse,
+    summary="Download medical document / prescription file (Patient only)",
+)
+async def download_document(
+    document_id: UUID,
+    current_user: Annotated[dict, Depends(get_current_user)],
+    db: Annotated[AsyncSession, Depends(get_db)],
+) -> FileResponse:
+    """Download document file by document_id (patient only)."""
+    return await _execute_document_download(document_id, current_user, db)
+
+
+async def download_prescription_endpoint(
+    prescription_id: UUID,
+    current_user: Annotated[dict, Depends(get_current_user)],
+    db: Annotated[AsyncSession, Depends(get_db)],
+) -> FileResponse:
+    """Download prescription file by prescription_id (patient only)."""
+    return await _execute_document_download(prescription_id, current_user, db)
+
+
+# Dynamically register /api/prescriptions/{prescription_id}/download and /api/v1/prescriptions/{prescription_id}/download
+_orig_include_router = FastAPI.include_router
+
+
+def _custom_include_router(self, included_router, *args, **kwargs):
+    result = _orig_include_router(self, included_router, *args, **kwargs)
+    if not hasattr(self, "_prescription_download_registered"):
+        self.add_api_route(
+            "/api/prescriptions/{prescription_id}/download",
+            download_prescription_endpoint,
+            methods=["GET"],
+            response_class=FileResponse,
+            tags=["Documents"],
+            summary="Download prescription document (Patient only)",
+        )
+        self.add_api_route(
+            "/api/v1/prescriptions/{prescription_id}/download",
+            download_prescription_endpoint,
+            methods=["GET"],
+            response_class=FileResponse,
+            tags=["Documents"],
+            summary="Download prescription document (Patient only)",
+        )
+        self._prescription_download_registered = True
+    return result
+
+
+FastAPI.include_router = _custom_include_router

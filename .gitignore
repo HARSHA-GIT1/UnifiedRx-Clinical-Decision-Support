@@ -1,4 +1,4 @@
-﻿# Python
+# ── Python & Bytecode ──────────────────────────────────────────────
 __pycache__/
 *.py[cod]
 *$py.class
@@ -9,44 +9,74 @@ build/
 *.egg
 .eggs/
 
-# Virtual environments
+# ── Virtual Environments ──────────────────────────────────────────
 venv/
 .venv/
 env/
+ENV/
+backend/backend/
+*/.venv/
+*/venv/
 
-# Environment variables
+# ── Environment & Secrets (NEVER COMMIT) ─────────────────────────
 .env
+.env.*
+*.env
+!.env.example
 
-# IDE
+# ── IDEs & Editors ───────────────────────────────────────────────
 .vscode/
 .idea/
 *.swp
 *.swo
 *~
+*.sublime-project
+*.sublime-workspace
 
-# OS
+# ── Operating System Artifacts ────────────────────────────────────
 .DS_Store
 Thumbs.db
+ehthumbs.db
+[Dd]esktop.ini
 
-# Node / Frontend
+# ── Node & Frontend Builds ────────────────────────────────────────
 node_modules/
+*/node_modules/
 frontend/dist/
 frontend/build/
+.npm
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
 
-# Uploads (local file storage - keep folder, ignore contents)
+# ── Uploads & Runtime Artifacts ───────────────────────────────────
+# Preserve upload directory with .gitkeep but ignore uploaded files
 backend/uploads/*
 !backend/uploads/.gitkeep
+uploads/*
+!uploads/.gitkeep
 
-# Alembic
-alembic/versions/__pycache__/
+# ── Databases & Backups ───────────────────────────────────────────
+*.db
+*.sqlite
+*.sqlite3
+*.dump
+*.sql
+*.sql.gz
 
-# Docker
-*.log
-
-# Testing
+# ── Testing, Quality & Coverage ───────────────────────────────────
 .coverage
+.coverage.*
 htmlcov/
 .pytest_cache/
+.mypy_cache/
+.ruff_cache/
 
-# SQLite dev databases
-*.db
+# ── Logs & Temporary Dumps ────────────────────────────────────────
+*.log
+logs/
+
+# ── Scratch & Local Debug Scripts ─────────────────────────────────
+backend/fix_alerts_pipeline.py
+backend/verify.py

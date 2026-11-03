@@ -1,8 +1,7 @@
-﻿import asyncio
+import asyncio
 from datetime import date, timedelta
 from decimal import Decimal
 
-from sqlalchemy.ext.asyncio import create_async_engine, async_sessionmaker
 from sqlalchemy import select, delete
 
 from app.core.security import hash_password
@@ -12,15 +11,11 @@ from app.models.medicine import Medicine
 from app.models.laboratory_result import LaboratoryResult
 from app.models.medication_interaction_alert import MedicationInteractionAlert
 from app.models.temporal_association import TemporalAssociation
+from app.core.database import async_session_factory
 from app.services import safety_service, lab_trend_service, temporal_association_service
 
-DB_URL = "postgresql+asyncpg://unifiedrx:changeme_dev_password@localhost:5432/unifiedrx_db"
-
 async def test_seed():
-    engine = create_async_engine(DB_URL)
-    session_factory = async_sessionmaker(engine, expire_on_commit=False)
-
-    async with session_factory() as db:
+    async with async_session_factory() as db:
         # Clean up any existing eval patient
         existing_u = (await db.execute(select(User).where(User.email == "eval@unifiedrx.com"))).scalar_one_or_none()
         if existing_u:

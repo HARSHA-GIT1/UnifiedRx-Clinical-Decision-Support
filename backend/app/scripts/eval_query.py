@@ -1,6 +1,10 @@
-﻿import asyncio
+import asyncio
+import os
 import sys
-sys.path.insert(0, r"E:\Capstone\Projectwork\backend")
+
+backend_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
+if backend_dir not in sys.path:
+    sys.path.insert(0, backend_dir)
 
 from app.core.database import async_session_factory
 from app.models.patient import Patient

@@ -11,7 +11,9 @@ import ErrorOutlineIcon from "@mui/icons-material/ErrorOutlined";
 import HourglassEmptyIcon from "@mui/icons-material/HourglassEmpty";
 import RefreshIcon from "@mui/icons-material/Refresh";
 import InsertDriveFileIcon from "@mui/icons-material/InsertDriveFile";
+import DownloadOutlinedIcon from "@mui/icons-material/DownloadOutlined";
 import { documentsApi } from "../../api/documents";
+import { apiClient } from "../../api/client";
 
 const TEAL = "#0F4C5C";
 const SAGE = "#2E8B75";
@@ -71,10 +73,34 @@ const useDocumentPoller = (documentId, initialStatus, onComplete) => {
 
 // Uploaded item row with live status
 const DocumentRow = ({ doc, onReprocess }) => {
+  const [downloading, setDownloading] = useState(false);
   const { status, detail } = useDocumentPoller(
     doc.document_id, doc.processing_status, () => {}
   );
   const chip = STATUS_CHIP[status] || STATUS_CHIP.pending;
+
+  const handleDownload = async (e) => {
+    e.stopPropagation();
+    setDownloading(true);
+    try {
+      const response = await apiClient.get(`/prescriptions/${doc.document_id}/download`, {
+        responseType: "blob",
+      });
+      const blob = new Blob([response.data]);
+      const url = window.URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = url;
+      link.setAttribute("download", doc.file_name || "document");
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      window.URL.revokeObjectURL(url);
+    } catch (err) {
+      console.error("Failed to download document:", err);
+    } finally {
+      setDownloading(false);
+    }
+  };
 
   return (
     <TableRow sx={{ "&:last-child td": { border: 0 } }}>
@@ -82,6 +108,21 @@ const DocumentRow = ({ doc, onReprocess }) => {
         <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
           <InsertDriveFileIcon sx={{ color: "#718096", fontSize: 18 }} />
           <Typography variant="body2" sx={{ fontWeight: 500, color: "#1A2230" }}>{doc.file_name}</Typography>
+          <Tooltip title="Download document">
+            <IconButton
+              size="small"
+              onClick={handleDownload}
+              disabled={downloading}
+              sx={{ color: TEAL, p: 0.5, "&:hover": { backgroundColor: "#EBF5F3" } }}
+              aria-label="download document"
+            >
+              {downloading ? (
+                <CircularProgress size={16} sx={{ color: TEAL }} />
+              ) : (
+                <DownloadOutlinedIcon sx={{ fontSize: 18 }} />
+              )}
+            </IconButton>
+          </Tooltip>
         </Box>
       </TableCell>
       <TableCell>
